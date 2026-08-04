@@ -16,6 +16,7 @@ import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined'
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
+import { MdEditorLogoIcon } from './MdEditorLogoIcon'
 import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined'
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import ShareOutlinedIcon from '@mui/icons-material/ShareOutlined'
@@ -79,7 +80,7 @@ export function AppNavbar({
               '&:hover': { bgcolor: 'action.hover' },
             }}
           >
-            <DescriptionOutlinedIcon color="primary" />
+            <MdEditorLogoIcon color="primary" />
             <Typography variant="h6" component="div" sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
               md-editor
             </Typography>

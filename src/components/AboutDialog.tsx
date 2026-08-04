@@ -4,8 +4,8 @@ import Divider from '@mui/material/Divider'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { useFormContainer } from 'react-dockable-desktop'
+import { MdEditorLogoIcon } from './MdEditorLogoIcon'
 
 const FEATURES = [
   'Live markdown preview, side-by-side with the source',
@@ -28,7 +28,7 @@ export function AboutDialog() {
   return (
     <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-        <DescriptionOutlinedIcon color="primary" fontSize="large" />
+        <MdEditorLogoIcon color="primary" fontSize="large" />
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             md-editor

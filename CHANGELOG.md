@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `MdEditorLogoIcon` — a proper icon component reusing the favicon's "M + downward chevron" mark
+  (minus its dark background tile), now used for the navbar brand and the About dialog instead of
+  the generic `DescriptionOutlinedIcon`, so the browser tab, the brand, and the About dialog all
+  agree on one identity.
 - Chrome/Edge-only custom PDF page headers/footers via `@page` margin boxes: the document's own
   filename top-left, "Powered by md-editor" bottom-left, and a real `counter(page)`/`counter(pages)`
   page count bottom-right — replacing Chrome's automatic date/URL/page-count for browsers that
