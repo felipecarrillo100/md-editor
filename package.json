@@ -1,0 +1,63 @@
+{
+  "name": "md-editor",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A markdown editor and live-preview viewer for the browser — multiple documents, export to Markdown/HTML/PDF, share-via-link, and a VS Code–style command palette, built on react-dockable-desktop.",
+  "keywords": [
+    "markdown",
+    "markdown-editor",
+    "editor",
+    "react",
+    "monaco-editor",
+    "react-dockable-desktop",
+    "docking",
+    "window-manager",
+    "live-preview"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felipecarrillo100/md-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/felipecarrillo100/md-editor/issues"
+  },
+  "homepage": "https://github.com/felipecarrillo100/md-editor#readme",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@monaco-editor/react": "^4.7.0",
+    "@mui/icons-material": "^9.2.0",
+    "@mui/material": "^9.2.0",
+    "katex": "^0.18.1",
+    "lz-string": "^1.5.0",
+    "mermaid": "^11.16.0",
+    "monaco-editor": "^0.56.0",
+    "react": "^19.2.8",
+    "react-dockable-desktop": "^5.1.0",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  }
+}

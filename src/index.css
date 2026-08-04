@@ -1,0 +1,74 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Monaco's own internal scroll container — without this, a trackpad/wheel momentum gesture that
+   drives it into its scroll boundary can "lock" there for the rest of that physical gesture,
+   ignoring even reversed wheel input until the gesture ends (overscroll-chaining). Unscoped
+   deliberately: covers both the main editor and VersionHistoryDialog's DiffEditor, which are two
+   independent Monaco instances with the same latent issue. */
+.monaco-editor .overflow-guard {
+  overscroll-behavior: contain;
+}
+
+/* Current search-match highlight (SearchReplaceSection) — deliberately opaque with forced text
+   color rather than a translucent tint, the same choice browsers make for their own Ctrl+F
+   highlight: a translucent overlay reads fine for an ordinary text selection, but disappears
+   against some syntax-highlighted token colors and low-contrast themes when the whole point is
+   "look here." !important is intentional: Monaco's tokenizer applies its own text-color classes
+   to the very same span, and this must win regardless of DOM/specificity ordering. */
+.md-search-current-match {
+  background-color: var(--md-search-match-bg, #ffca28) !important;
+  color: var(--md-search-match-color, #1a1a1a) !important;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--md-search-match-border, #ff8f00);
+}
+
+.md-drop-zone-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--mui-palette-primary-main, #1976d2) 12%, transparent);
+  border: 3px dashed var(--mui-palette-primary-main, #1976d2);
+  pointer-events: none;
+}
+
+.md-drop-zone-overlay-text {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--mui-palette-primary-main, #1976d2);
+  background: var(--mui-palette-background-paper, #fff);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.md-editor-divider {
+  width: 1px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  position: relative;
+}
+.md-editor-divider:hover,
+.md-editor-divider.md-editor-divider-active {
+  background: var(--mui-palette-primary-main, #1976d2);
+}
+.md-editor-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 -4px;
+}
