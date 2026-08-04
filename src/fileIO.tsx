@@ -149,7 +149,7 @@ export async function renderStandaloneHtml(
     />,
   )
 
-  const printCss = options.forPrint ? getPrintOnlyCss(options.pageSize ?? 'a4') : ''
+  const printCss = options.forPrint ? getPrintOnlyCss(options.pageSize ?? 'a4', doc.filename) : ''
   const css = `${katexCss}\n${getPreviewThemeCss(scheme)}\nbody { margin: 0; padding: 2rem; }\n${printCss}`
 
   return `<!doctype html>

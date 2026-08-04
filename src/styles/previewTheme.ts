@@ -174,13 +174,36 @@ export function getPreviewThemeCss(scheme: PreviewScheme): string {
  * reflow instead: wrapping code lines and shrinking table columns to fit rather than letting
  * either get silently clipped at the page edge.
  */
-export function getPrintOnlyCss(pageSize: PageSizeKey): string {
+/** Escapes a value for use inside a CSS string literal, e.g. `content: "${escapeCssString(x)}"`. */
+function escapeCssString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+export function getPrintOnlyCss(pageSize: PageSizeKey, documentTitle: string): string {
   const { width, height } = PAGE_SIZES[pageSize]
+  const title = escapeCssString(documentTitle)
 
   return `
 @page {
   size: ${width} ${height};
   margin: ${PRINT_MARGIN};
+  /* Chromium-only (Chrome/Edge 131+) — Chrome treats header and footer as two independent,
+     all-or-nothing regions: defining anything in one drops ALL of that region's own automatic
+     content (confirmed experimentally — defining just one box in a region silently killed the
+     native content in the *other* box of that same region too, not just the one we touched).
+     So each region we touch is fully ours; @top-right and the native date that used to live
+     there are gone as an accepted side effect of only defining @top-left.
+     Unsupported browsers (Firefox, and Safari per caniuse) just ignore all of this and fall back
+     to their own native header/footer, unaffected. */
+  @top-left {
+    content: "${title}";
+  }
+  @bottom-left {
+    content: "Powered by md-editor";
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+  }
 }
 
 .md-preview {

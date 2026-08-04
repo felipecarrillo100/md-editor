@@ -124,7 +124,7 @@ export function AppNavbar({
             <ListItemIcon>
               <PictureAsPdfOutlinedIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Export as PDF</ListItemText>
+            <ListItemText>Export for printing (.pdf)</ListItemText>
           </MenuItem>
         </Menu>
 

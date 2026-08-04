@@ -61,7 +61,7 @@ export function CommandPalette({
       actions.push(
         { id: 'save', label: 'Save as .md', group: 'Active document', run: onSaveMarkdown },
         { id: 'export-html', label: 'Export as HTML', group: 'Active document', run: onExportHtml },
-        { id: 'export-pdf', label: 'Export as PDF', group: 'Active document', run: onExportPdf },
+        { id: 'export-pdf', label: 'Export for printing (.pdf)', group: 'Active document', run: onExportPdf },
         { id: 'share', label: 'Share link', group: 'Active document', run: onShare },
         { id: 'history', label: 'Show version history', group: 'Active document', run: onShowHistory },
       )

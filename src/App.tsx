@@ -71,9 +71,17 @@ interface FeedbackMessage {
 }
 
 function AppShell({ mode, onToggleTheme }: AppShellProps) {
-  const { activePanelId } = useWindowManagerState()
+  const { activePanelId, panels } = useWindowManagerState()
   const activeDoc = useDocument(activePanelId ?? '')
   const allDocuments = useAllDocuments()
+  // useAllDocuments() includes every document ever created, including ones whose panel was
+  // closed without going through a normal close (e.g. the tab's browser session just ending) —
+  // those never get pruned from the store, so they'd otherwise show up here as "Switch to: X"
+  // entries with no actual panel left to switch to. Only list documents with a live panel.
+  const openDocuments = useMemo(
+    () => allDocuments.filter((doc) => doc.id in panels),
+    [allDocuments, panels],
+  )
   const { openModal } = usePanelActions()
 
   // No static tabs — Table of Contents / Search & Replace are contributed per-document by
@@ -217,7 +225,7 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        documents={allDocuments}
+        documents={openDocuments}
         hasActiveDocument={Boolean(activeDoc)}
         onNew={handleNew}
         onOpen={() => void handleOpen()}
