@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- A custom favicon (`public/favicon.svg`) and a descriptive `<title>` in `index.html`, replacing
+  the default Vite icon/title the project had never actually replaced. The mark is a bold "M" with
+  a downward chevron — the same silhouette language as the well-known, CC0 Markdown Mark — in the
+  app's own accent blue on a dark tile, so the browser tab reads as md-editor's own instead of a
+  generic scaffold leftover.
 - An "OK" button in the About dialog, closing it via `useFormContainer().requestClose()` — the
   same react-dockable-desktop API its own built-in `ConfirmationForm` uses to close itself.
 - A live demo link in `README.md`.
