@@ -1,3 +1,5 @@
+import { PAGE_SIZES, PRINT_MARGIN, type PageSizeKey } from './printPageSizes'
+
 export type PreviewScheme = 'light' | 'dark'
 
 interface PreviewPalette {
@@ -156,6 +158,53 @@ export function getPreviewThemeCss(scheme: PreviewScheme): string {
   color: ${p.muted};
   font-size: 0.85em;
   padding: 0.5em 0;
+}
+`
+}
+
+/**
+ * Print-only additions layered on top of getPreviewThemeCss's output, for the PDF export path
+ * only (renderStandaloneHtml's `forPrint` option) — never used by the live preview or the plain
+ * .html download, both of which are meant to be viewed in a scrollable browser window rather than
+ * fit onto a fixed physical page.
+ *
+ * Constrains `.md-preview` to the page's actual printable width (same page-size config as the
+ * `@page` rule, so what's laid out matches what physically prints), and replaces the on-screen
+ * scroll affordances for wide tables/code — meaningless in print, since there's no scrollbar — with
+ * reflow instead: wrapping code lines and shrinking table columns to fit rather than letting
+ * either get silently clipped at the page edge.
+ */
+export function getPrintOnlyCss(pageSize: PageSizeKey): string {
+  const { width, height } = PAGE_SIZES[pageSize]
+
+  return `
+@page {
+  size: ${width} ${height};
+  margin: ${PRINT_MARGIN};
+}
+
+.md-preview {
+  max-width: calc(${width} - 2 * ${PRINT_MARGIN});
+  margin: 0 auto;
+}
+
+.md-preview pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: visible;
+}
+
+.md-preview table {
+  table-layout: fixed;
+  overflow: visible;
+}
+.md-preview table td,
+.md-preview table th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.md-table-wrap {
+  overflow: visible;
 }
 `
 }

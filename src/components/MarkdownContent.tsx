@@ -53,7 +53,7 @@ function withSourceLine(tag: string): (props: any) => ReactNode {
 function TableWithScroll({ node, ...rest }: any): ReactNode {
   const line = node?.position?.start.line
   return (
-    <div style={{ overflowX: 'auto' }} data-source-line={line}>
+    <div className="md-table-wrap" style={{ overflowX: 'auto' }} data-source-line={line}>
       <table {...rest} />
     </div>
   )

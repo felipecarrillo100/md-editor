@@ -11,7 +11,6 @@ import {
   SidePanelRenderer,
   ModalStackRenderer,
   useWindowManagerState,
-  useColorScheme,
   useMergedSidebarTabs,
   usePanelActions,
 } from 'react-dockable-desktop'
@@ -22,14 +21,14 @@ import { AboutDialog } from './components/AboutDialog'
 import { DropZoneOverlay } from './components/DropZoneOverlay'
 import { CommandPalette } from './components/CommandPalette'
 import { VersionHistoryDialog } from './components/VersionHistoryDialog'
-import { PrintView } from './components/PrintView'
-import { createDocument, useAllDocuments, useDocument, type MarkdownDocument } from './documentStore'
+import { createDocument, useAllDocuments, useDocument } from './documentStore'
 import {
   openFilesFromDisk,
   readFilesAsDocuments,
   saveDocumentAsMarkdown,
   saveDocumentCopyAsMarkdown,
   exportDocumentAsHtml,
+  exportDocumentAsPdf,
   type OpenedFile,
 } from './fileIO'
 import { buildShareUrl, DocumentTooLargeToShareError } from './shareLink'
@@ -75,8 +74,6 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
   const { activePanelId } = useWindowManagerState()
   const activeDoc = useDocument(activePanelId ?? '')
   const allDocuments = useAllDocuments()
-  const scheme = useColorScheme()
-  const previewScheme = scheme === 'dark' ? 'dark' : 'light'
   const { openModal } = usePanelActions()
 
   // No static tabs — Table of Contents / Search & Replace are contributed per-document by
@@ -85,19 +82,9 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
   const sidebarTabs = useMergedSidebarTabs([])
 
   const [dragActive, setDragActive] = useState(false)
-  const [printingDoc, setPrintingDoc] = useState<MarkdownDocument | null>(null)
   const [historyDocId, setHistoryDocId] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null)
-
-  useEffect(() => {
-    if (!printingDoc) return
-    function handleAfterPrint() {
-      setPrintingDoc(null)
-    }
-    window.addEventListener('afterprint', handleAfterPrint)
-    return () => window.removeEventListener('afterprint', handleAfterPrint)
-  }, [printingDoc])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -166,12 +153,12 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
 
   async function handleExportHtml(): Promise<void> {
     if (!activeDoc) return
-    await exportDocumentAsHtml(activeDoc, previewScheme)
+    await exportDocumentAsHtml(activeDoc, 'light')
   }
 
-  function handleExportPdf(): void {
+  async function handleExportPdf(): Promise<void> {
     if (!activeDoc) return
-    setPrintingDoc(activeDoc)
+    await exportDocumentAsPdf(activeDoc)
   }
 
   async function handleShare(): Promise<void> {
@@ -205,7 +192,7 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
         onSaveMarkdown={() => void handleSaveMarkdown()}
         onSaveMarkdownCopy={handleSaveMarkdownCopy}
         onExportHtml={() => void handleExportHtml()}
-        onExportPdf={handleExportPdf}
+        onExportPdf={() => void handleExportPdf()}
         onShare={() => void handleShare()}
         onOpenCommandPalette={() => setPaletteOpen(true)}
         onOpenAbout={handleOpenAbout}
@@ -238,7 +225,7 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
         onShowWelcomeGuide={handleShowWelcomeGuide}
         onSaveMarkdown={() => void handleSaveMarkdown()}
         onExportHtml={() => void handleExportHtml()}
-        onExportPdf={handleExportPdf}
+        onExportPdf={() => void handleExportPdf()}
         onShare={() => void handleShare()}
         onToggleTheme={onToggleTheme}
         onShowHistory={() => activeDoc && setHistoryDocId(activeDoc.id)}
@@ -248,8 +235,6 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
       {historyDocId && (
         <VersionHistoryDialog open docId={historyDocId} onClose={() => setHistoryDocId(null)} />
       )}
-
-      {printingDoc && <PrintView doc={printingDoc} scheme={previewScheme} onReady={() => window.print()} />}
 
       <Snackbar
         open={Boolean(feedback)}

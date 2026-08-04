@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MarkdownContent } from './components/MarkdownContent'
 import { resolveMermaidDiagrams } from './components/MermaidBlock'
-import { getPreviewThemeCss, type PreviewScheme } from './styles/previewTheme'
+import { getPreviewThemeCss, getPrintOnlyCss, type PreviewScheme } from './styles/previewTheme'
+import type { PageSizeKey } from './styles/printPageSizes'
 import katexCss from 'katex/dist/katex.min.css?raw'
 import type { MarkdownDocument } from './documentStore'
 import { markSaved } from './documentStore'
@@ -121,7 +122,19 @@ function htmlFilenameFor(filename: string): string {
  * math-heavy documents render with correct layout/spacing but plainer glyphs when opened with no
  * network access.
  */
-export async function renderStandaloneHtml(doc: MarkdownDocument, scheme: PreviewScheme): Promise<string> {
+export interface RenderStandaloneHtmlOptions {
+  /** Adds an @page rule plus print-width-fitting CSS (see previewTheme.ts's getPrintOnlyCss) —
+   * used only by the PDF export path. The plain .html download omits this and stays unconstrained
+   * width/scrollable, as appropriate for something opened in a browser rather than printed. */
+  forPrint?: boolean
+  pageSize?: PageSizeKey
+}
+
+export async function renderStandaloneHtml(
+  doc: MarkdownDocument,
+  scheme: PreviewScheme,
+  options: RenderStandaloneHtmlOptions = {},
+): Promise<string> {
   const mermaidTheme = scheme === 'dark' ? 'dark' : 'default'
   const resolvedMermaid = await resolveMermaidDiagrams(doc.content, mermaidTheme)
 
@@ -136,7 +149,8 @@ export async function renderStandaloneHtml(doc: MarkdownDocument, scheme: Previe
     />,
   )
 
-  const css = `${katexCss}\n${getPreviewThemeCss(scheme)}\nbody { margin: 0; padding: 2rem; }`
+  const printCss = options.forPrint ? getPrintOnlyCss(options.pageSize ?? 'a4') : ''
+  const css = `${katexCss}\n${getPreviewThemeCss(scheme)}\nbody { margin: 0; padding: 2rem; }\n${printCss}`
 
   return `<!doctype html>
 <html lang="en">
@@ -156,4 +170,49 @@ ${bodyHtml}
 export async function exportDocumentAsHtml(doc: MarkdownDocument, scheme: PreviewScheme): Promise<void> {
   const html = await renderStandaloneHtml(doc, scheme)
   downloadBlob(new Blob([html], { type: 'text/html' }), htmlFilenameFor(doc.filename))
+}
+
+/**
+ * Exports a document as PDF by printing the same self-contained HTML renderStandaloneHtml
+ * produces for the .html download, inside a hidden iframe — one export pipeline instead of two,
+ * so both stay visually in sync and neither can drift. Always renders in the light theme
+ * (independent of the app's own live theme toggle): the app's viewing preference isn't part of a
+ * document meant to be shared or printed.
+ */
+export async function exportDocumentAsPdf(doc: MarkdownDocument, pageSize: PageSizeKey = 'a4'): Promise<void> {
+  const html = await renderStandaloneHtml(doc, 'light', { forPrint: true, pageSize })
+
+  const iframe = document.createElement('iframe')
+  // Zero-sized and off-screen, but deliberately not display:none — some browsers refuse to print
+  // an element with no layout box at all.
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+
+  let cleanedUp = false
+  function cleanup(): void {
+    if (cleanedUp) return
+    cleanedUp = true
+    iframe.remove()
+  }
+
+  iframe.addEventListener('load', () => {
+    const iframeWindow = iframe.contentWindow
+    if (!iframeWindow) {
+      cleanup()
+      return
+    }
+    iframeWindow.addEventListener('afterprint', cleanup)
+    // Fallback in case a browser never fires afterprint (e.g. the user cancels via some
+    // non-standard path) — don't leak the iframe forever.
+    setTimeout(cleanup, 60_000)
+    iframeWindow.focus()
+    iframeWindow.print()
+  })
+
+  iframe.srcdoc = html
+  document.body.appendChild(iframe)
 }
