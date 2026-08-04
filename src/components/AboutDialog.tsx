@@ -3,7 +3,9 @@ import Typography from '@mui/material/Typography'
 import Divider from '@mui/material/Divider'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
+import Button from '@mui/material/Button'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import { useFormContainer } from 'react-dockable-desktop'
 
 const FEATURES = [
   'Live markdown preview, side-by-side with the source',
@@ -16,9 +18,13 @@ const FEATURES = [
 ]
 
 /** Content for the "About" modal, opened via react-dockable-desktop's `openModal` from the
- * navbar brand — see AppShell's `handleOpenAbout` in App.tsx. The modal shell itself provides
- * the title bar and close button, so this renders content only. */
+ * navbar brand — see AppShell's `handleOpenAbout` in App.tsx. The modal shell itself already
+ * provides a title-bar close button; the OK button below is closed the same way ConfirmationForm
+ * (react-dockable-desktop's own built-in dialog) closes itself — `requestClose()` from
+ * `useFormContainer()`, rather than reaching for a second, ad hoc close mechanism. */
 export function AboutDialog() {
+  const { requestClose } = useFormContainer()
+
   return (
     <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
@@ -71,6 +77,14 @@ export function AboutDialog() {
           </Link>
           .
         </Typography>
+      </Box>
+
+      <Divider />
+
+      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Button variant="contained" color="primary" onClick={() => requestClose()} sx={{ minWidth: 120 }}>
+          OK
+        </Button>
       </Box>
     </Box>
   )

@@ -4,6 +4,8 @@ A markdown editor and live-preview viewer for the browser, built for beginners a
 alike — multiple documents at once, real exports, and a sidebar for navigation and search, all
 running client-side.
 
+**[Live demo](https://felipecarrillo100.github.io/md-editor/)**
+
 ## Features
 
 - **Live preview** — edit on one side, see the rendered result update on the other, scrolled in sync

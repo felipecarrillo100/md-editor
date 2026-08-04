@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- An "OK" button in the About dialog, closing it via `useFormContainer().requestClose()` — the
+  same react-dockable-desktop API its own built-in `ConfirmationForm` uses to close itself.
+- A live demo link in `README.md`.
 - PDF export now declares a real, defined page size (A4 by default; Letter ready in config) via
   `@page`, with print-only CSS so content actually fits the page — code blocks wrap instead of
   overflowing, and tables use `table-layout: fixed` with word-wrap instead of clipping at the
