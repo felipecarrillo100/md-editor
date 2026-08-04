@@ -24,6 +24,8 @@ export interface CommandPaletteProps {
   onSaveMarkdown: () => void
   onExportHtml: () => void
   onExportPdf: () => void
+  onExportPdfServerSide: () => void
+  showExportPdfServerSide: boolean
   onShare: () => void
   onToggleTheme: () => void
   onShowHistory: () => void
@@ -44,6 +46,8 @@ export function CommandPalette({
   onSaveMarkdown,
   onExportHtml,
   onExportPdf,
+  onExportPdfServerSide,
+  showExportPdfServerSide,
   onShare,
   onToggleTheme,
   onShowHistory,
@@ -65,6 +69,14 @@ export function CommandPalette({
         { id: 'share', label: 'Share link', group: 'Active document', run: onShare },
         { id: 'history', label: 'Show version history', group: 'Active document', run: onShowHistory },
       )
+      if (showExportPdfServerSide) {
+        actions.push({
+          id: 'export-pdf-server',
+          label: 'Export as PDF (experimental, server-rendered)',
+          group: 'Active document',
+          run: onExportPdfServerSide,
+        })
+      }
     }
     const switchers: CommandOption[] = documents.map((doc) => ({
       id: `switch-${doc.id}`,
@@ -84,6 +96,8 @@ export function CommandPalette({
     onSaveMarkdown,
     onExportHtml,
     onExportPdf,
+    onExportPdfServerSide,
+    showExportPdfServerSide,
     onShare,
     onShowHistory,
     onSwitchTo,

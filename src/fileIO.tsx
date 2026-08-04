@@ -216,3 +216,39 @@ export async function exportDocumentAsPdf(doc: MarkdownDocument, pageSize: PageS
   iframe.srcdoc = html
   document.body.appendChild(iframe)
 }
+
+const PDF_SERVER_URL = import.meta.env.VITE_PDF_SERVER_URL as string | undefined
+
+function pdfFilenameFor(filename: string): string {
+  return filename.replace(/\.(md|markdown)$/i, '') + '.pdf'
+}
+
+/** Whether the experimental server-rendered PDF export is configured — callers should check this
+ * before offering it in the UI, since it's inert without a deployed api/render-pdf.ts to call. */
+export function isPdfServerConfigured(): boolean {
+  return Boolean(PDF_SERVER_URL)
+}
+
+/**
+ * Experimental alternative to exportDocumentAsPdf: renders via a real backend (Playwright driving
+ * headless Chromium — see api/render-pdf.ts) instead of the browser's own print dialog. Produces
+ * an identical result regardless of the *viewer's* own browser, with a genuine live page count and
+ * a direct one-click download — no print dialog step. exportDocumentAsPdf is untouched; this is a
+ * separate, opt-in path for comparison, not a replacement.
+ */
+export async function exportDocumentAsPdfServerSide(doc: MarkdownDocument, pageSize: PageSizeKey = 'a4'): Promise<void> {
+  if (!PDF_SERVER_URL) throw new Error('VITE_PDF_SERVER_URL is not configured')
+
+  const html = await renderStandaloneHtml(doc, 'light', { forPrint: true, pageSize })
+
+  const response = await fetch(PDF_SERVER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, pageSize, title: doc.filename }),
+  })
+  if (!response.ok) {
+    throw new Error(`PDF render failed (${response.status})`)
+  }
+  const blob = await response.blob()
+  downloadBlob(blob, pdfFilenameFor(doc.filename))
+}

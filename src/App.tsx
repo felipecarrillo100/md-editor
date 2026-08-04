@@ -29,6 +29,8 @@ import {
   saveDocumentCopyAsMarkdown,
   exportDocumentAsHtml,
   exportDocumentAsPdf,
+  exportDocumentAsPdfServerSide,
+  isPdfServerConfigured,
   type OpenedFile,
 } from './fileIO'
 import { buildShareUrl, DocumentTooLargeToShareError } from './shareLink'
@@ -67,7 +69,7 @@ interface AppShellProps {
 
 interface FeedbackMessage {
   text: string
-  severity: 'success' | 'error'
+  severity: 'success' | 'error' | 'info'
 }
 
 function AppShell({ mode, onToggleTheme }: AppShellProps) {
@@ -169,6 +171,20 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
     await exportDocumentAsPdf(activeDoc)
   }
 
+  // Experimental — see the plan for context. A separate, opt-in path alongside handleExportPdf
+  // (untouched above), rendered server-side via Playwright instead of the browser's print dialog.
+  // Inert (isPdfServerConfigured() false) unless VITE_PDF_SERVER_URL is set.
+  async function handleExportPdfServerSide(): Promise<void> {
+    if (!activeDoc) return
+    setFeedback({ text: 'Rendering PDF…', severity: 'info' })
+    try {
+      await exportDocumentAsPdfServerSide(activeDoc)
+      setFeedback({ text: 'PDF ready.', severity: 'success' })
+    } catch {
+      setFeedback({ text: 'Could not render PDF via the server.', severity: 'error' })
+    }
+  }
+
   async function handleShare(): Promise<void> {
     if (!activeDoc) return
     try {
@@ -234,6 +250,8 @@ function AppShell({ mode, onToggleTheme }: AppShellProps) {
         onSaveMarkdown={() => void handleSaveMarkdown()}
         onExportHtml={() => void handleExportHtml()}
         onExportPdf={() => void handleExportPdf()}
+        onExportPdfServerSide={() => void handleExportPdfServerSide()}
+        showExportPdfServerSide={isPdfServerConfigured()}
         onShare={() => void handleShare()}
         onToggleTheme={onToggleTheme}
         onShowHistory={() => activeDoc && setHistoryDocId(activeDoc.id)}
