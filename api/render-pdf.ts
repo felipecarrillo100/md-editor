@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import chromium from '@sparticuz/chromium'
 import { chromium as playwrightChromium } from 'playwright-core'
 
@@ -8,6 +10,40 @@ import { chromium as playwrightChromium } from 'playwright-core'
 // there's nothing async left to race against, unlike the old window.print()-based timing bug.
 
 const ALLOWED_ORIGIN = process.env.PDF_CORS_ORIGIN ?? '*'
+
+// @sparticuz/chromium's minimal Linux Chromium build has no emoji font installed at all —
+// confirmed by testing (even plain-outline Dingbat characters failed, not just color emoji). The
+// live preview, plain .html download, and client-side print export don't have this problem since
+// they render in the viewer's own browser/OS, which already has a real emoji font.
+//
+// This font is attached HERE, server-side, rather than by the client embedding it into the HTML
+// it sends: that was the first attempt, and it broke the request entirely — Vercel serverless
+// functions have a hard, non-configurable 4.5MB request body limit, and the base64-encoded font
+// alone is ~7.6MB, well past it. Reading the same font file from this function's own bundled
+// node_modules avoids the request/response payload entirely — it never travels over the network
+// as part of any individual request.
+const emojiFontPath = fileURLToPath(
+  import.meta.resolve('@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400-normal.woff2'),
+)
+let cachedEmojiFontCss: string | null = null
+
+function getEmojiFontCss(): string {
+  if (!cachedEmojiFontCss) {
+    const base64 = readFileSync(emojiFontPath).toString('base64')
+    cachedEmojiFontCss = `
+@font-face {
+  font-family: 'Noto Color Emoji';
+  font-style: normal;
+  font-weight: 400;
+  src: url(data:font/woff2;base64,${base64}) format('woff2');
+}
+.md-preview {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "Noto Color Emoji", sans-serif;
+}
+`
+  }
+  return cachedEmojiFontCss
+}
 
 interface RenderPdfRequestBody {
   html: string
@@ -68,6 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     const page = await browser.newPage()
     await page.setContent(body.html, { waitUntil: 'load' })
+    await page.addStyleTag({ content: getEmojiFontCss() })
     const pdf = await page.pdf({
       format: pageSize,
       margin: { top: '2cm', bottom: '2cm', left: '2cm', right: '2cm' },

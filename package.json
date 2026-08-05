@@ -30,6 +30,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/noto-color-emoji": "^5.3.0",
     "@sparticuz/chromium": "^149.0.0",
     "playwright-core": "^1.62.1",
     "@emotion/react": "^11.14.0",

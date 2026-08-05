@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
+import { renderMermaidIsolated } from '../mermaidIsolatedRenderer'
 
 let renderCounter = 0
 
@@ -52,8 +53,16 @@ export function MermaidBlock({ code, theme = 'default' }: MermaidBlockProps) {
   return <div className="md-mermaid" dangerouslySetInnerHTML={{ __html: svg }} />
 }
 
-/** Resolves every distinct mermaid code block found in `source` to a static SVG string. Used by
- * the standalone HTML export to avoid shipping the mermaid runtime in a self-contained file. */
+/**
+ * Resolves every distinct mermaid code block found in `source` to a static SVG string. Used by
+ * the standalone HTML export and both PDF export paths to avoid shipping the mermaid runtime in a
+ * self-contained file. Renders inside an isolated iframe (see mermaidIsolatedRenderer.ts) rather
+ * than using the main thread's own `mermaid` module directly — that module is a single shared
+ * global singleton, and mutating its theme here (exports always force a specific theme,
+ * independent of the live app theme) would otherwise transiently affect MermaidBlock's own
+ * live-preview diagrams if they happened to re-render during an export — confirmed to actually
+ * happen (a visible flash to the wrong theme).
+ */
 export async function resolveMermaidDiagrams(
   source: string,
   theme: 'default' | 'dark' = 'default',
@@ -61,12 +70,10 @@ export async function resolveMermaidDiagrams(
   const blocks = Array.from(source.matchAll(/```mermaid\r?\n([\s\S]*?)```/g)).map((match) => match[1].trim())
   const uniqueBlocks = Array.from(new Set(blocks))
 
-  mermaid.initialize({ startOnLoad: false, theme })
   const resolved = new Map<string, string>()
   for (const code of uniqueBlocks) {
     try {
-      const { svg } = await mermaid.render(`mermaid-export-${++renderCounter}`, code)
-      resolved.set(code, svg)
+      resolved.set(code, await renderMermaidIsolated(code, theme))
     } catch {
       resolved.set(code, `<pre>Mermaid diagram error</pre>`)
     }

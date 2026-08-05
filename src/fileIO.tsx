@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MarkdownContent } from './components/MarkdownContent'
 import { resolveMermaidDiagrams } from './components/MermaidBlock'
-import { getPreviewThemeCss, getPrintOnlyCss, type PreviewScheme } from './styles/previewTheme'
+import { getPreviewThemeCss, getPrintOnlyCss, getPrintPageCss, type PreviewScheme } from './styles/previewTheme'
 import type { PageSizeKey } from './styles/printPageSizes'
 import katexCss from 'katex/dist/katex.min.css?raw'
 import type { MarkdownDocument } from './documentStore'
@@ -107,8 +107,12 @@ export function saveDocumentCopyAsMarkdown(doc: MarkdownDocument): void {
   downloadBlob(new Blob([doc.content], { type: 'text/markdown' }), doc.filename)
 }
 
+function baseNameFor(filename: string): string {
+  return filename.replace(/\.(md|markdown)$/i, '')
+}
+
 function htmlFilenameFor(filename: string): string {
-  return filename.replace(/\.(md|markdown)$/i, '') + '.html'
+  return `${baseNameFor(filename)}.html`
 }
 
 /**
@@ -123,11 +127,17 @@ function htmlFilenameFor(filename: string): string {
  * network access.
  */
 export interface RenderStandaloneHtmlOptions {
-  /** Adds an @page rule plus print-width-fitting CSS (see previewTheme.ts's getPrintOnlyCss) —
-   * used only by the PDF export path. The plain .html download omits this and stays unconstrained
+  /** Adds an @page rule plus print-width-fitting CSS (see previewTheme.ts's getPrintPageCss) —
+   * used only by the PDF export paths. The plain .html download omits this and stays unconstrained
    * width/scrollable, as appropriate for something opened in a browser rather than printed. */
   forPrint?: boolean
   pageSize?: PageSizeKey
+  /** Only relevant when forPrint is true. Also adds the Chromium-only @page margin-box
+   * header/footer content (document title / "Powered by md-editor" / page count) — set to false
+   * when the caller supplies its own header/footer mechanism instead (e.g. Playwright's
+   * headerTemplate/footerTemplate for the server-rendered export), since both active at once
+   * visibly duplicate. Defaults to true, matching the client-side window.print() export's needs. */
+  includeMarginBoxHeaderFooter?: boolean
 }
 
 export async function renderStandaloneHtml(
@@ -149,7 +159,11 @@ export async function renderStandaloneHtml(
     />,
   )
 
-  const printCss = options.forPrint ? getPrintOnlyCss(options.pageSize ?? 'a4', doc.filename) : ''
+  const printCss = options.forPrint
+    ? options.includeMarginBoxHeaderFooter === false
+      ? getPrintPageCss(options.pageSize ?? 'a4')
+      : getPrintOnlyCss(options.pageSize ?? 'a4', doc.filename)
+    : ''
   const css = `${katexCss}\n${getPreviewThemeCss(scheme)}\nbody { margin: 0; padding: 2rem; }\n${printCss}`
 
   return `<!doctype html>
@@ -192,10 +206,19 @@ export async function exportDocumentAsPdf(doc: MarkdownDocument, pageSize: PageS
   iframe.style.height = '0'
   iframe.style.border = '0'
 
+  // Chrome's "Save as PDF" suggests a filename from the *top-level tab's* document.title, not
+  // anything about the iframe being printed (confirmed — it also reads the top-level tab's URL
+  // for the print header, for the same reason: the print/save UI belongs to the outer browsing
+  // context, not the iframe). Temporarily renaming the tab for the duration of the print action
+  // is the only way to actually influence that suggested name, and is restored right after.
+  const originalTitle = document.title
+  document.title = baseNameFor(doc.filename)
+
   let cleanedUp = false
   function cleanup(): void {
     if (cleanedUp) return
     cleanedUp = true
+    document.title = originalTitle
     iframe.remove()
   }
 
@@ -220,7 +243,7 @@ export async function exportDocumentAsPdf(doc: MarkdownDocument, pageSize: PageS
 const PDF_SERVER_URL = import.meta.env.VITE_PDF_SERVER_URL as string | undefined
 
 function pdfFilenameFor(filename: string): string {
-  return filename.replace(/\.(md|markdown)$/i, '') + '.pdf'
+  return `${baseNameFor(filename)}.pdf`
 }
 
 /** Whether the experimental server-rendered PDF export is configured — callers should check this
@@ -239,7 +262,11 @@ export function isPdfServerConfigured(): boolean {
 export async function exportDocumentAsPdfServerSide(doc: MarkdownDocument, pageSize: PageSizeKey = 'a4'): Promise<void> {
   if (!PDF_SERVER_URL) throw new Error('VITE_PDF_SERVER_URL is not configured')
 
-  const html = await renderStandaloneHtml(doc, 'light', { forPrint: true, pageSize })
+  const html = await renderStandaloneHtml(doc, 'light', {
+    forPrint: true,
+    pageSize,
+    includeMarginBoxHeaderFooter: false,
+  })
 
   const response = await fetch(PDF_SERVER_URL, {
     method: 'POST',

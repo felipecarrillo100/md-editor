@@ -162,11 +162,18 @@ export function getPreviewThemeCss(scheme: PreviewScheme): string {
 `
 }
 
+/** Escapes a value for use inside a CSS string literal, e.g. `content: "${escapeCssString(x)}"`. */
+function escapeCssString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
 /**
- * Print-only additions layered on top of getPreviewThemeCss's output, for the PDF export path
- * only (renderStandaloneHtml's `forPrint` option) — never used by the live preview or the plain
- * .html download, both of which are meant to be viewed in a scrollable browser window rather than
- * fit onto a fixed physical page.
+ * Print-only additions layered on top of getPreviewThemeCss's output — page size and
+ * width-fitting only, no header/footer content. Shared by both PDF paths: the client-side
+ * window.print() export (layered under getPrintOnlyCss's margin-box header/footer, below) and the
+ * experimental server-rendered export (which supplies its own header/footer via Playwright's
+ * headerTemplate/footerTemplate instead — combining both here would render two independent
+ * header/footer mechanisms at once, confirmed to visibly duplicate).
  *
  * Constrains `.md-preview` to the page's actual printable width (same page-size config as the
  * `@page` rule, so what's laid out matches what physically prints), and replaces the on-screen
@@ -174,36 +181,13 @@ export function getPreviewThemeCss(scheme: PreviewScheme): string {
  * reflow instead: wrapping code lines and shrinking table columns to fit rather than letting
  * either get silently clipped at the page edge.
  */
-/** Escapes a value for use inside a CSS string literal, e.g. `content: "${escapeCssString(x)}"`. */
-function escapeCssString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-}
-
-export function getPrintOnlyCss(pageSize: PageSizeKey, documentTitle: string): string {
+export function getPrintPageCss(pageSize: PageSizeKey): string {
   const { width, height } = PAGE_SIZES[pageSize]
-  const title = escapeCssString(documentTitle)
 
   return `
 @page {
   size: ${width} ${height};
   margin: ${PRINT_MARGIN};
-  /* Chromium-only (Chrome/Edge 131+) — Chrome treats header and footer as two independent,
-     all-or-nothing regions: defining anything in one drops ALL of that region's own automatic
-     content (confirmed experimentally — defining just one box in a region silently killed the
-     native content in the *other* box of that same region too, not just the one we touched).
-     So each region we touch is fully ours; @top-right and the native date that used to live
-     there are gone as an accepted side effect of only defining @top-left.
-     Unsupported browsers (Firefox, and Safari per caniuse) just ignore all of this and fall back
-     to their own native header/footer, unaffected. */
-  @top-left {
-    content: "${title}";
-  }
-  @bottom-left {
-    content: "Powered by md-editor";
-  }
-  @bottom-right {
-    content: counter(page) " / " counter(pages);
-  }
 }
 
 .md-preview {
@@ -228,6 +212,36 @@ export function getPrintOnlyCss(pageSize: PageSizeKey, documentTitle: string): s
 }
 .md-table-wrap {
   overflow: visible;
+}
+`
+}
+
+/**
+ * getPrintPageCss plus the Chromium-only (Chrome/Edge 131+) `@page` margin-box header/footer —
+ * used only by the client-side window.print() export, which has no other way to show a custom
+ * header/footer. Chrome treats header and footer as two independent, all-or-nothing regions:
+ * defining anything in one drops ALL of that region's own automatic content (confirmed
+ * experimentally — defining just one box in a region silently killed the native content in the
+ * *other* box of that same region too, not just the one we touched). So each region we touch is
+ * fully ours; @top-right and the native date that used to live there are gone as an accepted side
+ * effect of only defining @top-left. Unsupported browsers (Firefox, and Safari per caniuse) just
+ * ignore all of this and fall back to their own native header/footer, unaffected.
+ */
+export function getPrintOnlyCss(pageSize: PageSizeKey, documentTitle: string): string {
+  const title = escapeCssString(documentTitle)
+
+  return `
+${getPrintPageCss(pageSize)}
+@page {
+  @top-left {
+    content: "${title}";
+  }
+  @bottom-left {
+    content: "Powered by md-editor";
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+  }
 }
 `
 }
