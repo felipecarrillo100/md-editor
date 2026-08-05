@@ -31,16 +31,26 @@ const ALLOWED_ORIGIN = process.env.PDF_CORS_ORIGIN ?? '*'
 // includeFiles glob not matching, or any other packaging surprise) — took down the *entire*
 // module, failing every request including trivial OPTIONS preflights. A broken emoji font must
 // degrade to "no emoji" for this one export, never to "the whole endpoint is down."
-let cachedEmojiFontCss: string | null | undefined // undefined = not yet attempted
+interface EmojiFontResources {
+  bytes: Buffer
+  // Excludes bare '#', '*', and '0'-'9' — see the comment below — for the generic .md-preview
+  // fallback stack, so plain text/numbers render through the real text font instead.
+  genericRange: string
+  // The font's real, full, unmodified range — reserved for actual keycap sequences (see
+  // wrapKeycapEmoji below), which need those bare characters to ligature with the combining mark.
+  fullRange: string
+}
 
-function getEmojiFontCss(): string | null {
-  if (cachedEmojiFontCss !== undefined) return cachedEmojiFontCss
+let cachedEmojiFontResources: EmojiFontResources | null | undefined // undefined = not yet attempted
+
+function getEmojiFontResources(): EmojiFontResources | null {
+  if (cachedEmojiFontResources !== undefined) return cachedEmojiFontResources
   try {
     const emojiFontPath = fileURLToPath(
       import.meta.resolve('@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400-normal.woff2'),
     )
-    // Without an explicit unicode-range, a @font-face declaration defaults to claiming coverage
-    // of *all* of Unicode, regardless of what glyphs the font file actually contains. Since this
+    // Without an explicit unicode-range, a font declaration defaults to claiming coverage of
+    // *all* of Unicode, regardless of what glyphs the font file actually contains. Since this
     // font is a fallback before the generic `sans-serif` in the stack below, that default made
     // Chromium match it for every character, not just emoji — and since Noto Color Emoji has no
     // Latin glyphs at all, ordinary text rendered as nothing (confirmed: this is exactly what
@@ -54,50 +64,44 @@ function getEmojiFontCss(): string | null {
     // characters that appear constantly in ordinary prose/code (version numbers, sizes, prices).
     // Matching those to this font instead of the text font doesn't lose the glyph, but its
     // different advance width breaks kerning between them: confirmed in a real-world document,
-    // multi-digit numbers like "15" and "502" rendered as "1 5" and "5 0 2". This generic range
-    // (used via the .md-preview fallback stack below) excludes those three tokens so plain digits
-    // render through the text font instead.
+    // multi-digit numbers like "15" and "502" rendered as "1 5" and "5 0 2".
     const EXCLUDED_RANGE_TOKENS = new Set(['U+23', 'U+2a', 'U+30-39'])
     const genericRange = fullRange
       .split(',')
       .filter((token) => !EXCLUDED_RANGE_TOKENS.has(token))
       .join(',')
 
-    const base64 = readFileSync(emojiFontPath).toString('base64')
-    const fontSrc = `url(data:font/woff2;base64,${base64}) format('woff2')`
-    cachedEmojiFontCss = `
-@font-face {
-  font-family: 'Noto Color Emoji';
-  font-style: normal;
-  font-weight: 400;
-  unicode-range: ${genericRange};
-  src: ${fontSrc};
-}
-@font-face {
-  font-family: 'Noto Color Emoji Keycap';
-  font-style: normal;
-  font-weight: 400;
-  unicode-range: ${fullRange};
-  src: ${fontSrc};
-}
-.md-preview {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "Noto Color Emoji", sans-serif;
-}
-/* A real keycap emoji (1️⃣/#️⃣/*️⃣) is its digit/#/* codepoint plus a separate combining "enclosing
-   keycap" mark (U+20E3) — they only fuse into the rounded badge glyph when a single font shapes
-   both together. The generic font-face above excludes those bare characters (see above), which
-   would split the pair across two fonts and break the ligature. wrapKeycapEmoji() (below) wraps
-   actual keycap sequences in this class so they explicitly opt back into the full-range font-face. */
-.md-keycap-emoji {
-  font-family: 'Noto Color Emoji Keycap', sans-serif;
-}
-`
+    cachedEmojiFontResources = { bytes: readFileSync(emojiFontPath), genericRange, fullRange }
   } catch (err) {
     console.error('[render-pdf] Failed to load emoji font — continuing without emoji support:', err)
-    cachedEmojiFontCss = null
+    cachedEmojiFontResources = null
   }
-  return cachedEmojiFontCss
+  return cachedEmojiFontResources
 }
+
+// @sparticuz/chromium ships its browser binary compressed and decompresses it to os.tmpdir() on
+// first use per container — real, one-time disk/CPU work. Caching the promise (not just the
+// resolved path) means a second request landing on the same still-warm container, possibly
+// arriving before the first request's decompression has even finished, awaits the *same* in-flight
+// work instead of kicking off a redundant second decompression.
+let chromiumExecutablePathPromise: Promise<string> | undefined
+
+function getChromiumExecutablePath(): Promise<string> {
+  if (!chromiumExecutablePathPromise) chromiumExecutablePathPromise = chromium.executablePath()
+  return chromiumExecutablePathPromise
+}
+
+// Both kicked off here, at module scope, rather than waiting until the handler runs for whatever
+// request happens to trigger this container's cold start: this overlaps the decompression/font-read
+// work with the rest of the container's own boot time instead of only starting once the request has
+// already been routed in. It can't make that first request free — nothing runs before some request
+// causes the module to load in the first place — but it does shave real time off it.
+void getChromiumExecutablePath().catch(() => {
+  // Swallowed here only so an early failure doesn't surface as an unhandled rejection before any
+  // request exists to await it; the handler's own await of this same cached promise still sees
+  // and handles the real error normally.
+})
+getEmojiFontResources()
 
 // Matches a keycap emoji's base character(s): digit/#/*, an optional variation selector, then the
 // combining enclosing keycap mark itself. Wrapping just this in .md-keycap-emoji (see above) is
@@ -113,6 +117,17 @@ interface RenderPdfRequestBody {
   html: string
   pageSize?: 'a4' | 'letter'
   title?: string
+}
+
+// tsconfig.api.json has no DOM lib (this file is Node-context code); page.evaluate() callbacks
+// run in the browser, so anything touching document/window/FontFace needs a hand-rolled minimal
+// type instead of lib.dom.d.ts's real ones.
+interface BrowserFontFace {
+  load: () => Promise<unknown>
+}
+interface BrowserWindow {
+  document: { fonts: { add: (face: BrowserFontFace) => void } }
+  FontFace: new (family: string, source: Uint8Array, descriptors?: { unicodeRange?: string }) => BrowserFontFace
 }
 
 function escapeHtml(value: string): string {
@@ -160,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const title = body.title ?? 'Untitled.md'
 
   const browser = await playwrightChromium.launch({
-    executablePath: await chromium.executablePath(),
+    executablePath: await getChromiumExecutablePath(),
     args: chromium.args,
     headless: true,
   })
@@ -168,8 +183,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     const page = await browser.newPage()
     await page.setContent(wrapKeycapEmoji(body.html), { waitUntil: 'load' })
-    const emojiFontCss = getEmojiFontCss()
-    if (emojiFontCss) await page.addStyleTag({ content: emojiFontCss })
+
+    const emojiFont = getEmojiFontResources()
+    if (emojiFont) {
+      // Loaded via the Font Loading API with the raw font bytes passed straight through as a
+      // Playwright evaluate() argument, rather than as two separate @font-face CSS rules each
+      // embedding the *same* font re-encoded as a ~7.6MB base64 data URI: that doubled both the
+      // payload size and the decode work for no reason, since both "fonts" are really one file
+      // read twice. Explicitly loading and awaiting both FontFace objects here — rather than
+      // relying on page.setContent's 'load' event, which doesn't cover font downloads at all —
+      // is also what makes emoji rendering deterministic instead of a race against however long
+      // that decode happens to take on a given request.
+      await page.evaluate(
+        async ({ bytes, genericRange, fullRange }) => {
+          const win = globalThis as unknown as BrowserWindow
+          const generic = new win.FontFace('Noto Color Emoji', bytes, { unicodeRange: genericRange })
+          // A real keycap emoji (1️⃣/#️⃣/*️⃣) is its digit/#/* codepoint plus a separate combining
+          // "enclosing keycap" mark — they only fuse into the rounded badge glyph when a single
+          // font shapes both together. The generic face above excludes those bare characters (see
+          // getEmojiFontResources), which would split the pair across two fonts and break the
+          // ligature. wrapKeycapEmoji (below) wraps actual keycap sequences in a class that opts
+          // them back into this second, full-range face instead.
+          const keycap = new win.FontFace('Noto Color Emoji Keycap', bytes, { unicodeRange: fullRange })
+          await Promise.all([generic.load(), keycap.load()])
+          win.document.fonts.add(generic)
+          win.document.fonts.add(keycap)
+        },
+        { bytes: new Uint8Array(emojiFont.bytes), genericRange: emojiFont.genericRange, fullRange: emojiFont.fullRange },
+      )
+      await page.addStyleTag({
+        content: `
+.md-preview {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "Noto Color Emoji", sans-serif;
+}
+.md-keycap-emoji {
+  font-family: 'Noto Color Emoji Keycap', sans-serif;
+}
+`,
+      })
+    }
 
     const pdf = await page.pdf({
       format: pageSize,

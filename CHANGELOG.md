@@ -42,6 +42,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Exports (`.html` and PDF) always render in the light theme now, independent of the app's own
   live dark/light toggle — the app's viewing preference isn't part of a document meant to be
   shared or printed.
+- The experimental server-rendered PDF export now starts decompressing its bundled Chromium binary
+  and reading its emoji font at module load (i.e. as soon as a cold container boots) instead of
+  waiting until the first request's handler runs, and caches the in-flight work so a second request
+  landing on the same still-warm container never repeats it. Shaves real time off a cold request by
+  overlapping this work with the rest of the container's own startup, though it can't eliminate that
+  cost entirely — nothing runs before some request causes the container to boot in the first place.
 
 ### Fixed
 - PDF export could produce a blank page. The previous path rendered through the live DOM and
@@ -71,6 +77,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   digit/`#`/`*` plus a separate combining "enclosing keycap" mark, and the two only fuse into the
   rounded badge glyph when a single font shapes both, so simply excluding the digit everywhere
   would have fixed plain numbers while breaking every keycap emoji instead.
+- The experimental server-rendered PDF export's emoji font could intermittently fail to render at
+  all — not just the keycap/digit edge cases above, but every emoji missing. `page.setContent`'s
+  `load` wait doesn't cover font downloads, which resolve asynchronously on their own schedule, so
+  nothing was blocking `page.pdf()` until the font had actually finished decoding; whether it made
+  it in time came down to raw timing luck, confirmed by emoji rendering correctly once the
+  function's process was already warm but disappearing on a fresh cold start. The font is now
+  loaded via the Font Loading API instead of CSS `@font-face` plus a base64 data URI — both faces
+  (see above) are constructed directly from the font's raw bytes and explicitly `load()`ed and
+  awaited before the PDF is captured, so this is now deterministic instead of a race. This also
+  removes the redundant base64 re-encoding of the same ~5.7MB font file into two separate ~7.6MB
+  text payloads that the two-face fix above had introduced.
 
 ### Removed
 - `PrintView.tsx` and `print.css`, superseded by the unified export pipeline above.
