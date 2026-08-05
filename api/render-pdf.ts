@@ -10,6 +10,10 @@ import { chromium as playwrightChromium } from 'playwright-core'
 // there's nothing async left to race against, unlike the old window.print()-based timing bug.
 
 const ALLOWED_ORIGIN = process.env.PDF_CORS_ORIGIN ?? '*'
+// Diagnostic kill switch — set DISABLE_EMOJI_FONT=true in Vercel's project env vars (then
+// redeploy/redeploy-trigger for it to take effect) to isolate whether the emoji font attachment
+// is responsible for a rendering issue, without needing a code revert to test that in isolation.
+const EMOJI_FONT_ENABLED = process.env.DISABLE_EMOJI_FONT !== 'true'
 
 // @sparticuz/chromium's minimal Linux Chromium build has no emoji font installed at all —
 // confirmed by testing (even plain-outline Dingbat characters failed, not just color emoji). The
@@ -129,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     const page = await browser.newPage()
     await page.setContent(body.html, { waitUntil: 'load' })
-    const emojiFontCss = getEmojiFontCss()
+    const emojiFontCss = EMOJI_FONT_ENABLED ? getEmojiFontCss() : null
     if (emojiFontCss) await page.addStyleTag({ content: emojiFontCss })
     const pdf = await page.pdf({
       format: pageSize,
