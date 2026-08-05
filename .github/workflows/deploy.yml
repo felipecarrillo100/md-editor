@@ -26,6 +26,7 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
+          VITE_PDF_SERVER_URL: ${{ vars.VITE_PDF_SERVER_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `@page`, with print-only CSS so content actually fits the page — code blocks wrap instead of
   overflowing, and tables use `table-layout: fixed` with word-wrap instead of clipping at the
   margin.
+- The GitHub Pages deploy workflow now passes a `VITE_PDF_SERVER_URL` repository variable through
+  to `npm run build`, so the deployed site (not just local dev, via `.env.local`) can enable the
+  experimental server-rendered PDF export. Left unset, `isPdfServerConfigured()` still resolves to
+  `false` and the export entry simply doesn't appear, same as before.
 
 ### Changed
 - The command palette's document switcher now only lists documents with a currently open panel,
