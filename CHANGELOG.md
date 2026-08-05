@@ -55,6 +55,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   handled. Resolution now happens lazily inside the handler, wrapped in try/catch, and `vercel.json`
   explicitly `includeFiles`s the font path Vercel's static file-tracer can't detect on its own
   (it's only computed at runtime, not a static string literal it can trace).
+- The experimental server-rendered PDF export's emoji font had no `unicode-range` set, which
+  defaults to claiming coverage of all of Unicode regardless of what the font file actually
+  contains — since it sat in the fallback stack before the generic `sans-serif`, Chromium matched
+  it for every character, not just emoji, and rendered ordinary text as nothing (Noto Color Emoji
+  has no Latin glyphs at all). Now declares the font's real emoji-only range, reusing
+  `@fontsource/noto-color-emoji`'s own precomputed range data instead of a hand-typed one.
 
 ### Removed
 - `PrintView.tsx` and `print.css`, superseded by the unified export pipeline above.

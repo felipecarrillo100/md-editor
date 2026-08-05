@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/render-pdf.ts": {
-      "includeFiles": "node_modules/@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400-normal.woff2",
+      "includeFiles": "node_modules/@fontsource/noto-color-emoji/**",
       "maxDuration": 60
     }
   }

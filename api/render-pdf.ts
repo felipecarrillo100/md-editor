@@ -39,12 +39,24 @@ function getEmojiFontCss(): string | null {
     const emojiFontPath = fileURLToPath(
       import.meta.resolve('@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400-normal.woff2'),
     )
+    // Without an explicit unicode-range, a @font-face declaration defaults to claiming coverage
+    // of *all* of Unicode, regardless of what glyphs the font file actually contains. Since this
+    // font is a fallback before the generic `sans-serif` in the stack below, that default made
+    // Chromium match it for every character, not just emoji — and since Noto Color Emoji has no
+    // Latin glyphs at all, ordinary text rendered as nothing (confirmed: this is exactly what
+    // happened). Fontsource ships the correct emoji-only range precomputed; reusing it directly
+    // rather than hand-typing something this easy to get subtly wrong.
+    const unicodeJsonPath = fileURLToPath(import.meta.resolve('@fontsource/noto-color-emoji/unicode.json'))
+    const unicodeRanges = JSON.parse(readFileSync(unicodeJsonPath, 'utf-8')) as Record<string, string>
+    const unicodeRange = Object.values(unicodeRanges).join(',')
+
     const base64 = readFileSync(emojiFontPath).toString('base64')
     cachedEmojiFontCss = `
 @font-face {
   font-family: 'Noto Color Emoji';
   font-style: normal;
   font-weight: 400;
+  unicode-range: ${unicodeRange};
   src: url(data:font/woff2;base64,${base64}) format('woff2');
 }
 .md-preview {
