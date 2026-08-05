@@ -48,6 +48,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   waited a hardcoded 600ms hoping Mermaid/KaTeX had finished before calling `window.print()`; the
   new pipeline `await`s that resolution properly before ever building the HTML, so there's no
   timing race to lose.
+- The experimental server-rendered PDF export (`api/render-pdf.ts`) could fail entirely, including
+  its `OPTIONS` preflight — surfacing in the browser as a misleading "CORS error" with no signal
+  about the real cause. The emoji font's path was resolved via `import.meta.resolve()` at module
+  load time, unwrapped; a failure there took down the whole function before any request could be
+  handled. Resolution now happens lazily inside the handler, wrapped in try/catch, and `vercel.json`
+  explicitly `includeFiles`s the font path Vercel's static file-tracer can't detect on its own
+  (it's only computed at runtime, not a static string literal it can trace).
 
 ### Removed
 - `PrintView.tsx` and `print.css`, superseded by the unified export pipeline above.

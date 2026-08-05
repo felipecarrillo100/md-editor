@@ -21,14 +21,24 @@ const ALLOWED_ORIGIN = process.env.PDF_CORS_ORIGIN ?? '*'
 // functions have a hard, non-configurable 4.5MB request body limit, and the base64-encoded font
 // alone is ~7.6MB, well past it. Reading the same font file from this function's own bundled
 // node_modules avoids the request/response payload entirely — it never travels over the network
-// as part of any individual request.
-const emojiFontPath = fileURLToPath(
-  import.meta.resolve('@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400-normal.woff2'),
-)
-let cachedEmojiFontCss: string | null = null
+// as part of any individual request. It also needs an explicit `includeFiles` entry in
+// vercel.json: Vercel's static-analysis-based file tracer generally can't tell this font file is
+// needed, since the path here is only computed at runtime via import.meta.resolve(), not a static
+// string literal it can trace.
+//
+// Deliberately lazy and wrapped in try/catch, not resolved at module load time: an earlier
+// version resolved the path as a top-level const, which — if it throws for any reason (e.g. the
+// includeFiles glob not matching, or any other packaging surprise) — took down the *entire*
+// module, failing every request including trivial OPTIONS preflights. A broken emoji font must
+// degrade to "no emoji" for this one export, never to "the whole endpoint is down."
+let cachedEmojiFontCss: string | null | undefined // undefined = not yet attempted
 
-function getEmojiFontCss(): string {
-  if (!cachedEmojiFontCss) {
+function getEmojiFontCss(): string | null {
+  if (cachedEmojiFontCss !== undefined) return cachedEmojiFontCss
+  try {
+    const emojiFontPath = fileURLToPath(
+      import.meta.resolve('@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400-normal.woff2'),
+    )
     const base64 = readFileSync(emojiFontPath).toString('base64')
     cachedEmojiFontCss = `
 @font-face {
@@ -41,6 +51,9 @@ function getEmojiFontCss(): string {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "Noto Color Emoji", sans-serif;
 }
 `
+  } catch (err) {
+    console.error('[render-pdf] Failed to load emoji font — continuing without emoji support:', err)
+    cachedEmojiFontCss = null
   }
   return cachedEmojiFontCss
 }
@@ -104,7 +117,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     const page = await browser.newPage()
     await page.setContent(body.html, { waitUntil: 'load' })
-    await page.addStyleTag({ content: getEmojiFontCss() })
+    const emojiFontCss = getEmojiFontCss()
+    if (emojiFontCss) await page.addStyleTag({ content: emojiFontCss })
     const pdf = await page.pdf({
       format: pageSize,
       margin: { top: '2cm', bottom: '2cm', left: '2cm', right: '2cm' },
