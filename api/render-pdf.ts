@@ -48,31 +48,48 @@ function getEmojiFontCss(): string | null {
     // rather than hand-typing something this easy to get subtly wrong.
     const unicodeJsonPath = fileURLToPath(import.meta.resolve('@fontsource/noto-color-emoji/unicode.json'))
     const unicodeRanges = JSON.parse(readFileSync(unicodeJsonPath, 'utf-8')) as Record<string, string>
+    const fullRange = Object.values(unicodeRanges).join(',')
+
     // One subset (needed for keycap emoji like 1️⃣/#️⃣/*️⃣) also claims bare '#', '*', and '0'-'9' —
     // characters that appear constantly in ordinary prose/code (version numbers, sizes, prices).
     // Matching those to this font instead of the text font doesn't lose the glyph, but its
     // different advance width breaks kerning between them: confirmed in a real-world document,
-    // multi-digit numbers like "15" and "502" rendered as "1 5" and "5 0 2". Keycap emoji are rare
-    // enough in typical markdown that dropping just these three tokens (not the whole subset,
-    // which also contains everyday emoji like ✅/❌) is the right trade-off.
+    // multi-digit numbers like "15" and "502" rendered as "1 5" and "5 0 2". This generic range
+    // (used via the .md-preview fallback stack below) excludes those three tokens so plain digits
+    // render through the text font instead.
     const EXCLUDED_RANGE_TOKENS = new Set(['U+23', 'U+2a', 'U+30-39'])
-    const unicodeRange = Object.values(unicodeRanges)
-      .join(',')
+    const genericRange = fullRange
       .split(',')
       .filter((token) => !EXCLUDED_RANGE_TOKENS.has(token))
       .join(',')
 
     const base64 = readFileSync(emojiFontPath).toString('base64')
+    const fontSrc = `url(data:font/woff2;base64,${base64}) format('woff2')`
     cachedEmojiFontCss = `
 @font-face {
   font-family: 'Noto Color Emoji';
   font-style: normal;
   font-weight: 400;
-  unicode-range: ${unicodeRange};
-  src: url(data:font/woff2;base64,${base64}) format('woff2');
+  unicode-range: ${genericRange};
+  src: ${fontSrc};
+}
+@font-face {
+  font-family: 'Noto Color Emoji Keycap';
+  font-style: normal;
+  font-weight: 400;
+  unicode-range: ${fullRange};
+  src: ${fontSrc};
 }
 .md-preview {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "Noto Color Emoji", sans-serif;
+}
+/* A real keycap emoji (1️⃣/#️⃣/*️⃣) is its digit/#/* codepoint plus a separate combining "enclosing
+   keycap" mark (U+20E3) — they only fuse into the rounded badge glyph when a single font shapes
+   both together. The generic font-face above excludes those bare characters (see above), which
+   would split the pair across two fonts and break the ligature. wrapKeycapEmoji() (below) wraps
+   actual keycap sequences in this class so they explicitly opt back into the full-range font-face. */
+.md-keycap-emoji {
+  font-family: 'Noto Color Emoji Keycap', sans-serif;
 }
 `
   } catch (err) {
@@ -80,6 +97,16 @@ function getEmojiFontCss(): string | null {
     cachedEmojiFontCss = null
   }
   return cachedEmojiFontCss
+}
+
+// Matches a keycap emoji's base character(s): digit/#/*, an optional variation selector, then the
+// combining enclosing keycap mark itself. Wrapping just this in .md-keycap-emoji (see above) is
+// scoped narrowly enough that it can safely run over the whole HTML string, tags included — U+20E3
+// practically never appears outside an actual keycap sequence.
+const KEYCAP_SEQUENCE = /[0-9#*]\uFE0F?\u20E3/g
+
+function wrapKeycapEmoji(html: string): string {
+  return html.replace(KEYCAP_SEQUENCE, (match) => `<span class="md-keycap-emoji">${match}</span>`)
 }
 
 interface RenderPdfRequestBody {
@@ -140,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const page = await browser.newPage()
-    await page.setContent(body.html, { waitUntil: 'load' })
+    await page.setContent(wrapKeycapEmoji(body.html), { waitUntil: 'load' })
     const emojiFontCss = getEmojiFontCss()
     if (emojiFontCss) await page.addStyleTag({ content: emojiFontCss })
 

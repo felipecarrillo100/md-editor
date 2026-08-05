@@ -64,9 +64,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The experimental server-rendered PDF export's emoji font range (above) also covers bare `#`,
   `*`, and `0`-`9` — needed for keycap emoji like 1️⃣/#️⃣/*️⃣ — which meant every plain digit/`#`/`*`
   in a document matched the emoji font instead of the text font; its different character spacing
-  broke multi-digit numbers apart (e.g. "15" rendered as "1 5", "502" as "5 0 2"). Now excludes
-  just those three range tokens, keeping the rest of that subset's everyday emoji (✅/❌ etc.)
-  intact.
+  broke multi-digit numbers apart (e.g. "15" rendered as "1 5", "502" as "5 0 2"). The font is now
+  declared twice: a generic face (used everywhere via the `.md-preview` fallback stack) with those
+  three tokens excluded, plus a second, full-range face reserved for real keycap sequences, which
+  the export now detects and wraps explicitly so they still opt into it — a keycap emoji is its
+  digit/`#`/`*` plus a separate combining "enclosing keycap" mark, and the two only fuse into the
+  rounded badge glyph when a single font shapes both, so simply excluding the digit everywhere
+  would have fixed plain numbers while breaking every keycap emoji instead.
 
 ### Removed
 - `PrintView.tsx` and `print.css`, superseded by the unified export pipeline above.
