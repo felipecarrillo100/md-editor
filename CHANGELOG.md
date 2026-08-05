@@ -61,6 +61,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   it for every character, not just emoji, and rendered ordinary text as nothing (Noto Color Emoji
   has no Latin glyphs at all). Now declares the font's real emoji-only range, reusing
   `@fontsource/noto-color-emoji`'s own precomputed range data instead of a hand-typed one.
+- The experimental server-rendered PDF export's emoji font range (above) also covers bare `#`,
+  `*`, and `0`-`9` — needed for keycap emoji like 1️⃣/#️⃣/*️⃣ — which meant every plain digit/`#`/`*`
+  in a document matched the emoji font instead of the text font; its different character spacing
+  broke multi-digit numbers apart (e.g. "15" rendered as "1 5", "502" as "5 0 2"). Now excludes
+  just those three range tokens, keeping the rest of that subset's everyday emoji (✅/❌ etc.)
+  intact.
 
 ### Removed
 - `PrintView.tsx` and `print.css`, superseded by the unified export pipeline above.

@@ -48,7 +48,19 @@ function getEmojiFontCss(): string | null {
     // rather than hand-typing something this easy to get subtly wrong.
     const unicodeJsonPath = fileURLToPath(import.meta.resolve('@fontsource/noto-color-emoji/unicode.json'))
     const unicodeRanges = JSON.parse(readFileSync(unicodeJsonPath, 'utf-8')) as Record<string, string>
-    const unicodeRange = Object.values(unicodeRanges).join(',')
+    // One subset (needed for keycap emoji like 1️⃣/#️⃣/*️⃣) also claims bare '#', '*', and '0'-'9' —
+    // characters that appear constantly in ordinary prose/code (version numbers, sizes, prices).
+    // Matching those to this font instead of the text font doesn't lose the glyph, but its
+    // different advance width breaks kerning between them: confirmed in a real-world document,
+    // multi-digit numbers like "15" and "502" rendered as "1 5" and "5 0 2". Keycap emoji are rare
+    // enough in typical markdown that dropping just these three tokens (not the whole subset,
+    // which also contains everyday emoji like ✅/❌) is the right trade-off.
+    const EXCLUDED_RANGE_TOKENS = new Set(['U+23', 'U+2a', 'U+30-39'])
+    const unicodeRange = Object.values(unicodeRanges)
+      .join(',')
+      .split(',')
+      .filter((token) => !EXCLUDED_RANGE_TOKENS.has(token))
+      .join(',')
 
     const base64 = readFileSync(emojiFontPath).toString('base64')
     cachedEmojiFontCss = `
@@ -128,48 +140,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const page = await browser.newPage()
-    page.on('console', (msg) => console.log('[render-pdf:browser]', msg.text()))
     await page.setContent(body.html, { waitUntil: 'load' })
     const emojiFontCss = getEmojiFontCss()
     if (emojiFontCss) await page.addStyleTag({ content: emojiFontCss })
-
-    // Temporary diagnostic — plain (unstyled) text is rendering blank in the actual PDF output
-    // while bold/italic/inline-code text renders fine, even with the emoji font entirely
-    // disabled. Logging what the browser itself thinks is happening (available font faces, and
-    // what font a plain <p> actually resolves to vs a <strong>) rather than guessing further.
-    await page.evaluate(
-      (() => {
-        const win = globalThis as unknown as {
-          document: {
-            fonts: Iterable<{ family: string; weight: string; style: string; status: string }> & {
-              check: (font: string) => boolean
-            }
-            querySelector: (selector: string) => unknown
-          }
-          getComputedStyle: (el: unknown) => { fontFamily: string; fontWeight: string; fontStyle: string; color: string }
-        }
-
-        const fontsLoaded = Array.from(win.document.fonts).map(
-          (f) => `${f.family} ${f.weight} ${f.style} (${f.status})`,
-        )
-        console.log('document.fonts:', JSON.stringify(fontsLoaded))
-
-        const p = win.document.querySelector('.md-preview p')
-        const strong = win.document.querySelector('.md-preview strong')
-        if (p) {
-          const style = win.getComputedStyle(p)
-          console.log('plain <p> computed font:', style.fontFamily, style.fontWeight, style.fontStyle, style.color)
-          console.log(
-            'document.fonts.check for <p> font:',
-            win.document.fonts.check(`${style.fontWeight} 16px ${style.fontFamily}`),
-          )
-        }
-        if (strong) {
-          const style = win.getComputedStyle(strong)
-          console.log('<strong> computed font:', style.fontFamily, style.fontWeight, style.fontStyle, style.color)
-        }
-      }) as () => void,
-    )
 
     const pdf = await page.pdf({
       format: pageSize,
