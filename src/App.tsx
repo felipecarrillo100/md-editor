@@ -38,7 +38,7 @@ import { buildShareUrl, DocumentTooLargeToShareError } from './shareLink'
 type ThemeMode = 'light' | 'dark'
 
 export default function App() {
-  const [mode, setMode] = useState<ThemeMode>('dark')
+  const [mode, setMode] = useState<ThemeMode>('light')
   const theme = useMemo(() => createAppTheme(mode), [mode])
 
   useEffect(() => {

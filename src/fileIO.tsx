@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MarkdownContent } from './components/MarkdownContent'
 import { resolveMermaidDiagrams } from './components/MermaidBlock'
+import { resolveAbcNotation } from './components/AbcBlock'
 import { getPreviewThemeCss, getPrintOnlyCss, getPrintPageCss, type PreviewScheme } from './styles/previewTheme'
 import type { PageSizeKey } from './styles/printPageSizes'
 import katexCss from 'katex/dist/katex.min.css?raw'
@@ -147,6 +148,7 @@ export async function renderStandaloneHtml(
 ): Promise<string> {
   const mermaidTheme = scheme === 'dark' ? 'dark' : 'default'
   const resolvedMermaid = await resolveMermaidDiagrams(doc.content, mermaidTheme)
+  const resolvedAbc = await resolveAbcNotation(doc.content, scheme)
 
   const bodyHtml = renderToStaticMarkup(
     <MarkdownContent
@@ -155,6 +157,11 @@ export async function renderStandaloneHtml(
       renderMermaid={(code) => (
         // eslint-disable-next-line react/no-danger -- svg is produced locally by mermaid.render
         <div className="md-mermaid" dangerouslySetInnerHTML={{ __html: resolvedMermaid.get(code) ?? '' }} />
+      )}
+      abcScheme={scheme}
+      renderAbc={(code) => (
+        // eslint-disable-next-line react/no-danger -- svg is produced locally by abcjs.renderAbc
+        <div className="md-abc" dangerouslySetInnerHTML={{ __html: resolvedAbc.get(code) ?? '' }} />
       )}
     />,
   )

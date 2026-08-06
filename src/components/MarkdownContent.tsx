@@ -7,6 +7,8 @@ import rehypeSlug from 'rehype-slug'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeKatex from 'rehype-katex'
 import { MermaidBlock } from './MermaidBlock'
+import { AbcBlock } from './AbcBlock'
+import type { PreviewScheme } from '../styles/previewTheme'
 
 export interface MarkdownContentProps {
   source: string
@@ -17,6 +19,12 @@ export interface MarkdownContentProps {
    */
   renderMermaid?: (code: string) => ReactNode
   mermaidTheme?: 'default' | 'dark'
+  /**
+   * Overrides how ```abc fences render. Defaults to the live AbcBlock. Swap this for a
+   * pre-resolved static-SVG lookup when server-rendering — same reasoning as renderMermaid above.
+   */
+  renderAbc?: (code: string) => ReactNode
+  abcScheme?: PreviewScheme
   /**
    * Tags rendered headings/paragraphs/lists/etc. with `data-source-line`, read by
    * MarkdownDocumentPanel's editor<->preview scroll-sync. Opt-in and off by default: this
@@ -81,7 +89,14 @@ const sourceLineComponents: Partial<Components> = {
  * with the others (GFM tables/task-lists, math, syntax highlighting, heading anchors, raw HTML,
  * and mermaid diagrams all behave identically everywhere this component is used).
  */
-export function MarkdownContent({ source, renderMermaid, mermaidTheme = 'default', tagSourceLines = false }: MarkdownContentProps) {
+export function MarkdownContent({
+  source,
+  renderMermaid,
+  mermaidTheme = 'default',
+  renderAbc,
+  abcScheme = 'light',
+  tagSourceLines = false,
+}: MarkdownContentProps) {
   const components: Components = {
     code(props) {
       const { className, children, ...rest } = props
@@ -89,6 +104,11 @@ export function MarkdownContent({ source, renderMermaid, mermaidTheme = 'default
       if (isMermaid) {
         const code = extractText(children).trim()
         return renderMermaid ? renderMermaid(code) : <MermaidBlock code={code} theme={mermaidTheme} />
+      }
+      const isAbc = /language-abc\b/.test(className ?? '')
+      if (isAbc) {
+        const code = extractText(children).trim()
+        return renderAbc ? renderAbc(code) : <AbcBlock code={code} scheme={abcScheme} />
       }
       return (
         <code className={className} {...rest}>

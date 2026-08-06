@@ -63,6 +63,20 @@ const HIGHLIGHT_TOKENS: Record<PreviewScheme, Record<string, string>> = {
   },
 }
 
+/** The notation-ink color abcjs should render ABC blocks with, so dark mode gets light notation
+ * on a dark backdrop instead of a fixed black-on-white sheet. Reuses the same per-scheme text
+ * color already used for the rest of the rendered prose, rather than a separate hand-picked value. */
+export function getAbcForegroundColor(scheme: PreviewScheme): string {
+  return PALETTES[scheme].text
+}
+
+/** The preview pane's own opaque background color, per scheme — used by the live preview's
+ * scroll container so it never falls through to the app chrome's translucent glass theme wherever
+ * the rendered document is shorter than the panel (see MarkdownDocumentPanel's preview wrapper). */
+export function getPreviewBackground(scheme: PreviewScheme): string {
+  return PALETTES[scheme].background
+}
+
 /**
  * Canonical rendered-markdown CSS, as a string, shared by three consumers: the live preview pane
  * (injected inline), the PDF PrintView (with print.css layered on top), and the standalone HTML
@@ -158,6 +172,16 @@ export function getPreviewThemeCss(scheme: PreviewScheme): string {
   color: ${p.muted};
   font-size: 0.85em;
   padding: 0.5em 0;
+}
+
+.md-preview .md-abc { margin: 1em 0; }
+.md-preview .md-abc svg { max-width: 100%; height: auto; }
+.md-preview .md-abc-error {
+  color: #cf222e;
+  background: ${p.codeBg};
+  border-radius: 6px;
+  padding: 1em;
+  font-size: 0.85em;
 }
 `
 }

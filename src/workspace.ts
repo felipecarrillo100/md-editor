@@ -70,6 +70,19 @@ sequenceDiagram
   Preview-->>You: Rendered result
 \`\`\`
 
+## Music
+
+ABC notation renders as real sheet music, via \`\`\`abc fences:
+
+\`\`\`abc
+X:1
+T:Twinkle, Twinkle, Little Star
+M:4/4
+L:1/4
+K:C
+C C G G | A A G2 | F F E E | D D C2 |
+\`\`\`
+
 | Feature | Status |
 | --- | --- |
 | Live preview | ✅ |
@@ -77,6 +90,7 @@ sequenceDiagram
 | Offline-safe exports | ✅ |
 | Table of Contents & Search/Replace | ✅ |
 | Math (LaTeX) & syntax-highlighted code | ✅ |
+| Diagrams (Mermaid) & music notation (ABC) | ✅ |
 
 Delete this text and start writing — or open your own file from the navbar above.
 `

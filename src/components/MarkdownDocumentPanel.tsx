@@ -18,7 +18,7 @@ import {
 } from 'react-dockable-desktop'
 import { useDocument, updateContent } from '../documentStore'
 import { MarkdownContent } from './MarkdownContent'
-import { getPreviewThemeCss } from '../styles/previewTheme'
+import { getPreviewThemeCss, getPreviewBackground } from '../styles/previewTheme'
 import { VersionHistoryDialog } from './VersionHistoryDialog'
 import { TocList, type HeadingInfo } from './TocSection'
 import { SearchReplaceSection } from './SearchReplaceSection'
@@ -87,6 +87,7 @@ export function MarkdownDocumentPanel({
   const container = useFormContainer()
   const scheme = useColorScheme()
   const mermaidTheme = scheme === 'dark' ? 'dark' : 'default'
+  const abcScheme = scheme === 'dark' ? 'dark' : 'light'
 
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode ?? 'split')
   const [wrapLines, setWrapLines] = useState(initialWrapLines ?? true)
@@ -398,10 +399,16 @@ export function MarkdownDocumentPanel({
               overflow: 'auto',
               overscrollBehavior: 'contain',
               padding: '0 1.5rem',
+              backgroundColor: getPreviewBackground(scheme === 'dark' ? 'dark' : 'light'),
             }}
           >
             <style>{previewCss}</style>
-            <MarkdownContent source={doc.content} mermaidTheme={mermaidTheme} tagSourceLines />
+            <MarkdownContent
+              source={doc.content}
+              mermaidTheme={mermaidTheme}
+              abcScheme={abcScheme}
+              tagSourceLines
+            />
           </div>
         )}
       </div>
