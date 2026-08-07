@@ -5,6 +5,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- Sanitized the rendered-markdown pipeline (`rehype-sanitize`, inserted right after `rehypeRaw` in
+  `MarkdownContent.tsx`) against XSS via raw HTML embedded in markdown source — previously
+  unsanitized, and reachable remotely via a crafted share link (`shareLink.ts` decodes and
+  auto-opens arbitrary content from the URL hash). Covers the live preview, the PDF print view,
+  and the standalone HTML export, since all three share this one pipeline.
+- Hardened `api/render-pdf.ts`: the render context now launches with JavaScript disabled
+  (`javaScriptEnabled: false`), closing it off as a server-side script-execution/SSRF-adjacent
+  vector for arbitrary client-supplied HTML; oversized request bodies are now rejected (413)
+  before any Chromium work.
+- Made Mermaid's existing sanitization explicit (`securityLevel: 'strict'` in `MermaidBlock.tsx`
+  — already mermaid's own default, now guarded against future accidental drift to `'loose'`).
+- Added a baseline Content-Security-Policy (`index.html`).
+- Self-hosted Monaco (`src/monacoSetup.ts`, using the `monaco-editor` package already present as a
+  dependency) instead of `@monaco-editor/react`'s default of loading it from `cdn.jsdelivr.net` at
+  runtime — removes a broad, origin-level third-party script/style/font allowance from the CSP
+  above, ahead of the Google Drive/OneDrive work that will put real account tokens in this origin.
+  Adds ~1 MB gzip to the main bundle; measured and accepted as the right trade-off for closing a
+  real CSP-bypass-via-trusted-CDN class of risk before that work lands.
+- Added a minimal Vitest setup (this project's first test tooling), scoped to regression coverage
+  for the sanitization work above.
+
 ### Added
 - `MdEditorLogoIcon` — a proper icon component reusing the favicon's "M + downward chevron" mark
   (minus its dark background tile), now used for the navbar brand and the About dialog instead of

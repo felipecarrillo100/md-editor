@@ -18,6 +18,13 @@ export interface AbcBlockProps {
  * `abcjs` is loaded via a dynamic import rather than a static one, purely to keep it out of the
  * main bundle — most documents never use a ```abc fence, so it ships as its own lazy chunk, same
  * treatment as katex/each Mermaid diagram type.
+ *
+ * Security note (checked as part of the XSS-hardening pass, since tune source can arrive via a
+ * shared link — see shareLink.ts): abcjs's renderAbc output is pure geometric/text SVG glyphs.
+ * Unlike MermaidBlock, there's no `securityLevel`-style option to set here — checked abcjs's own
+ * renderer and found no `foreignObject` usage and no path from tune-source text to an injected
+ * `href`/markup in this app's usage (the only place abcjs builds raw `<a href>` strings is its
+ * separate MIDI-download helper, which this app never imports). No sanitization needed for this.
  */
 export function AbcBlock({ code, scheme = 'light' }: AbcBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null)

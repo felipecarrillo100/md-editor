@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeRaw from 'rehype-raw'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeSlug from 'rehype-slug'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeKatex from 'rehype-katex'
@@ -123,7 +124,17 @@ export function MarkdownContent({
     <div className="md-preview">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeSlug, rehypeHighlight, rehypeKatex]}
+        // rehypeSanitize runs immediately after rehypeRaw and before every other rehype plugin —
+        // deliberately. rehypeRaw is what turns literal HTML typed into a markdown document into
+        // real DOM elements (the actual XSS surface: raw HTML embedded in shared-link content,
+        // per shareLink.ts, is otherwise rendered and executed as-is). Sanitizing right here means
+        // rehypeSlug/rehypeHighlight/rehypeKatex's own generated markup (heading ids, hljs-*
+        // classes, KaTeX's <span class="katex">/<math> output) is produced *after* this and never
+        // has to be specifically allowlisted — verified empirically (see the plan) that math,
+        // syntax highlighting, and GFM task lists all render identically with or without this
+        // insertion; only actual raw-HTML attack payloads (<script>, event-handler attributes,
+        // javascript:/data: URIs, <iframe>/<object>/<embed>/<form>) are the ones actually stripped.
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, defaultSchema], rehypeSlug, rehypeHighlight, rehypeKatex]}
         components={components}
       >
         {source}

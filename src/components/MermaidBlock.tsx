@@ -22,7 +22,13 @@ export function MermaidBlock({ code, theme = 'default' }: MermaidBlockProps) {
 
   useEffect(() => {
     let cancelled = false
-    mermaid.initialize({ startOnLoad: false, theme })
+    // securityLevel: 'strict' is mermaid's own default — set explicitly (rather than relying on
+    // that default silently) so this app's safety doesn't depend on mermaid never changing its
+    // default, and so a future change to 'loose'/'sandbox' (e.g. to enable clickable-node links)
+    // can't happen by accident. In 'strict' mode mermaid runs its own SVG output through DOMPurify
+    // internally before returning it, so diagram source (```mermaid fences, including ones that
+    // arrive via a shared link — see shareLink.ts) can't inject scripts/event handlers this way.
+    mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'strict' })
     mermaid
       .render(idRef.current, code)
       .then(({ svg: renderedSvg }) => {

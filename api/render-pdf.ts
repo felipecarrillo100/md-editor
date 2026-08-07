@@ -119,6 +119,11 @@ interface RenderPdfRequestBody {
   title?: string
 }
 
+// Generous ceiling for a self-contained markdown-to-HTML export (inlined CSS/KaTeX, pre-resolved
+// diagram SVGs, no client JS) — real documents land nowhere near this. Rejecting oversized bodies
+// up front avoids doing Chromium work for obviously abusive payloads.
+const MAX_HTML_BODY_LENGTH = 5_000_000
+
 // tsconfig.api.json has no DOM lib (this file is Node-context code); page.evaluate() callbacks
 // run in the browser, so anything touching document/window/FontFace needs a hand-rolled minimal
 // type instead of lib.dom.d.ts's real ones.
@@ -170,6 +175,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(400).json({ error: 'Missing "html" in request body' })
     return
   }
+  if (body.html.length > MAX_HTML_BODY_LENGTH) {
+    res.status(413).json({ error: 'HTML payload too large' })
+    return
+  }
 
   const pageSize = body.pageSize === 'letter' ? 'Letter' : 'A4'
   const title = body.title ?? 'Untitled.md'
@@ -181,7 +190,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   })
 
   try {
-    const page = await browser.newPage()
+    // javaScriptEnabled: false closes off this endpoint as a script-execution/SSRF vector for
+    // whatever HTML a caller sends — this endpoint's own contract already requires script-free,
+    // fully self-contained HTML (see the comment at the top of this file), so there's no legitimate
+    // use of page-embedded JS to give up here. This only disables the *page's own* script execution
+    // (inline <script>, event-handler attributes, javascript: URLs) — Playwright's own page.evaluate()
+    // calls below (used to load the emoji font) run through a separate channel and are unaffected.
+    const page = await browser.newPage({ javaScriptEnabled: false })
     await page.setContent(wrapKeycapEmoji(body.html), { waitUntil: 'load' })
 
     const emojiFont = getEmojiFontResources()

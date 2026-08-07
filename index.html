@@ -4,6 +4,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Defense-in-depth, not the primary fix (that's rehype-sanitize in MarkdownContent.tsx and
+      api/render-pdf.ts's hardening) — a backstop against any residual/future XSS regardless of
+      where it originates. `<meta>`-delivered CSP can't carry every directive (e.g. frame-ancestors
+      is spec'd to be HTTP-header-only and would silently no-op here, so it's deliberately omitted
+      rather than included as a misleading no-op).
+
+      script-src/worker-src/style-src/font-src all stay at 'self' with no third-party exception —
+      Monaco is self-hosted via src/monacoSetup.ts (loader.config({ monaco }) + a Vite `?worker`
+      import for its editor worker) rather than @monaco-editor/react's CDN-loading default, so
+      there's no more runtime dependency on cdn.jsdelivr.net to allow for. style-src still needs
+      'unsafe-inline' because MUI/emotion inject <style> tags at runtime for all of this app's UI
+      chrome; blocking that breaks the whole app's styling. connect-src stays at 'self' https:
+      rather than naming an exact host, since the PDF export's server URL (VITE_PDF_SERVER_URL) is
+      only known at each deployment's build time, not here.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self';"
+    />
     <title>md-editor — Markdown editor with live preview</title>
   </head>
   <body>
